@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GIS Parcel Viewer</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            margin-bottom: 0.5rem;
+            font-size: 2rem;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+
+        .controls {
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .file-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .file-input {
+            padding: 0.5rem;
+            border: 2px dashed #3498db;
+            border-radius: 5px;
+            background: #f8f9fa;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-input:hover {
+            border-color: #2980b9;
+            background: #e3f2fd;
+        }
+
+        .search-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .search-input {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            min-width: 200px;
+        }
+
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .map-container {
+            position: relative;
+            height: calc(100vh - 200px);
+            min-height: 400px;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            padding: 1rem;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            max-width: 250px;
+        }
+
+        .legend h4 {
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.3rem;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 15px;
+            margin-right: 0.5rem;
+            border: 1px solid #333;
+        }
+
+        .status {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-weight: bold;
+        }
+
+        .status.loading {
+            background: #f39c12;
+            color: white;
+        }
+
+        .status.success {
+            background: #27ae60;
+            color: white;
+        }
+
+        .status.error {
+            background: #e74c3c;
+            color: white;
+        }
+
+        .popup-content {
+            max-width: 300px;
+        }
+
+        .popup-content h4 {
+            margin-bottom: 0.5rem;
+            color: #2c3e50;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 0.3rem;
+        }
+
+        .popup-content .attribute {
+            margin-bottom: 0.3rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .popup-content .attribute strong {
+            color: #34495e;
+        }
+
+        /* Layer control styling */
+        .leaflet-control-layers {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            border: none;
+            padding: 10px;
+        }
+
+        .leaflet-control-layers-expanded {
+            min-width: 200px;
+        }
+
+        .leaflet-control-layers-list {
+            margin: 0;
+        }
+
+        .leaflet-control-layers-base label,
+        .leaflet-control-layers-overlays label {
+            font-weight: 500;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 3px 0;
+        }
+
+        .leaflet-control-layers-base label:hover,
+        .leaflet-control-layers-overlays label:hover {
+            background-color: rgba(52, 152, 219, 0.1);
+            border-radius: 4px;
+            padding: 3px 5px;
+        }
+
+        .leaflet-control-layers-separator {
+            border-top: 1px solid #ddd;
+            margin: 8px 0;
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .search-input {
+                min-width: 100%;
+            }
+
+            .legend {
+                position: relative;
+                bottom: auto;
+                right: auto;
+                margin: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .header p {
+                font-size: 1rem;
+            }
+
+            .leaflet-control-layers {
+                max-width: 250px;
+            }
+
+            .leaflet-control-layers-expanded {
+                min-width: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🗺️ GIS Parcel Viewer</h1>
+        <p>Interactive mapping system for shapefile parcel data visualization</p>
+    </div>
+
+    <div class="controls">
+        <div class="file-input-group">
+            <label for="shapefileInput">Upload Shapefile(s) or GeoJSON - Multiple files supported:</label>
+            <input type="file" id="shapefileInput" class="file-input" multiple accept=".zip,.shp,.shx,.dbf,.prj,.geojson,.json">
+            <small style="color: #666; font-size: 0.9em;">💡 Select multiple .zip files, individual shapefile components, or .geojson files</small>
+        </div>
+        
+        <div class="search-group">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search parcels (e.g., parcel ID, owner)">
+            <button id="searchBtn" class="btn btn-primary">Search</button>
+            <button id="clearBtn" class="btn btn-secondary">Clear</button>
+        </div>
+    </div>
+
+    <div class="map-container">
+        <div id="map"></div>
+        <div id="status" class="status" style="display: none;">Ready</div>
+        
+        <div class="legend">
+            <h4>Legend</h4>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgba(74, 144, 226, 0.3); border-color: #4a90e2;"></div>
+                <span>Parcels</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: rgba(231, 76, 60, 0.5); border-color: #e74c3c;"></div>
+                <span>Selected/Searched</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Shapefile JS -->
+    <script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+    <!-- Proj4js for coordinate transformations -->
+    <script src="https://unpkg.com/proj4@2.9.0/dist/proj4.js"></script>
+
+    <script>
+        class GISParcelViewer {
+            constructor() {
+                this.map = null;
+                this.parcelLayer = null;
+                this.allParcels = null;
+                this.searchResults = [];
+                this.init();
+            }
+
+            init() {
+                this.initMap();
+                this.bindEvents();
+                this.showStatus('Ready to load shapefile data', 'success');
+            }
+
+            initMap() {
+                // Initialize the map
+                this.map = L.map('map').setView([8.4783, 124.6415], 10);
+                
+                // Define basemap layers
+                const baseMaps = {
+                    "OpenStreetMap": L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                        attribution: '© OpenStreetMap contributors',
+                        maxZoom: 19
+                    }),
+                    "Google Streets": L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+                        attribution: '© Google Maps',
+                        maxZoom: 20
+                    }),
+                    "Google Satellite": L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+                        attribution: '© Google Maps',
+                        maxZoom: 20
+                    }),
+                    "Google Hybrid": L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                        attribution: '© Google Maps',
+                        maxZoom: 20
+                    }),
+                    "Esri Satellite": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                        attribution: '© Esri, Maxar, Earthstar Geographics',
+                        maxZoom: 19
+                    })
+                };
+
+                // Add default basemap (OpenStreetMap)
+                baseMaps["OpenStreetMap"].addTo(this.map);
+
+                // Create layer control
+                this.layerControl = L.control.layers(baseMaps, null, {
+                    position: 'topright',
+                    collapsed: false
+                }).addTo(this.map);
+
+                // Add scale control
+                L.control.scale().addTo(this.map);
+            }
+
+            bindEvents() {
+                const fileInput = document.getElementById('shapefileInput');
+                const searchBtn = document.getElementById('searchBtn');
+                const clearBtn = document.getElementById('clearBtn');
+                const searchInput = document.getElementById('searchInput');
+
+                fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
+                searchBtn.addEventListener('click', () => this.searchParcels());
+                clearBtn.addEventListener('click', () => this.clearSearch());
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.searchParcels();
+                });
+            }
+
+            showStatus(message, type = 'loading') {
+                const status = document.getElementById('status');
+                status.textContent = message;
+                status.className = `status ${type}`;
+                status.style.display = 'block';
+                
+                if (type === 'success' || type === 'error') {
+                    setTimeout(() => {
+                        status.style.display = 'none';
+                    }, 3000);
+                }
+            }
+
+            async handleFileUpload(event) {
+                const files = Array.from(event.target.files);
+                if (files.length === 0) return;
+
+                this.showStatus('Processing files...', 'loading');
+
+                try {
+                    let shapefileData;
+                    let fileType = 'shapefile';
+
+                    // Check for different file types
+                    const zipFiles = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
+                    const geoJsonFiles = files.filter(f => {
+                        const name = f.name.toLowerCase();
+                        return name.endsWith('.geojson') || name.endsWith('.json');
+                    });
+                    
+                    if (geoJsonFiles.length > 0) {
+                        // GeoJSON files
+                        if (geoJsonFiles.length === 1) {
+                            shapefileData = await this.processGeoJsonFile(geoJsonFiles[0]);
+                            fileType = 'GeoJSON';
+                        } else {
+                            shapefileData = await this.processMultipleGeoJsonFiles(geoJsonFiles);
+                            fileType = `${geoJsonFiles.length} GeoJSON files`;
+                        }
+                    } else if (zipFiles.length > 0) {
+                        // ZIP files
+                        if (zipFiles.length === 1) {
+                            shapefileData = await this.processZipFile(zipFiles[0]);
+                            fileType = 'ZIP file';
+                        } else {
+                            shapefileData = await this.processMultipleZipFiles(zipFiles);
+                            fileType = `${zipFiles.length} ZIP files`;
+                        }
+                    } else {
+                        // Individual shapefile components
+                        shapefileData = await this.processIndividualFiles(files);
+                        fileType = 'shapefile components';
+                    }
+
+                    if (shapefileData) {
+                        await this.loadShapefileData(shapefileData);
+                        const featureCount = shapefileData.features ? shapefileData.features.length : 0;
+                        this.showStatus(`Successfully loaded ${featureCount} parcels from ${fileType}!`, 'success');
+                    } else {
+                        throw new Error('No valid data found');
+                    }
+                } catch (error) {
+                    console.error('Error processing files:', error);
+                    this.showStatus(`Error: ${error.message}`, 'error');
+                }
+            }
+
+            async processZipFile(zipFile) {
+                const arrayBuffer = await zipFile.arrayBuffer();
+                return await shp(arrayBuffer);
+            }
+
+            async processMultipleZipFiles(zipFiles) {
+                this.showStatus(`Processing ${zipFiles.length} ZIP files...`, 'loading');
+                
+                const allGeoJSONData = [];
+                let totalFeatures = 0;
+
+                for (let i = 0; i < zipFiles.length; i++) {
+                    const zipFile = zipFiles[i];
+                    try {
+                        this.showStatus(`Processing ${zipFile.name} (${i + 1}/${zipFiles.length})...`, 'loading');
+                        
+                        const geoJsonData = await this.processZipFile(zipFile);
+                        
+                        if (geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
+                            // Add source file information to each feature
+                            geoJsonData.features.forEach(feature => {
+                                if (!feature.properties) feature.properties = {};
+                                feature.properties._sourceFile = zipFile.name;
+                            });
+                            
+                            allGeoJSONData.push(geoJsonData);
+                            totalFeatures += geoJsonData.features.length;
+                            console.log(`Loaded ${geoJsonData.features.length} features from ${zipFile.name}`);
+                        } else {
+                            console.warn(`No valid features found in ${zipFile.name}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error processing ${zipFile.name}:`, error);
+                        // Continue with other files even if one fails
+                    }
+                }
+
+                if (allGeoJSONData.length === 0) {
+                    throw new Error('No valid shapefile data found in any ZIP file');
+                }
+
+                // Merge all GeoJSON data into a single FeatureCollection
+                const mergedData = this.mergeGeoJSONData(allGeoJSONData);
+                console.log(`Successfully merged ${totalFeatures} features from ${allGeoJSONData.length} ZIP files`);
+                
+                return mergedData;
+            }
+
+            mergeGeoJSONData(geoJsonArray) {
+                const mergedFeatures = [];
+                
+                geoJsonArray.forEach(geoJson => {
+                    if (geoJson.features && Array.isArray(geoJson.features)) {
+                        mergedFeatures.push(...geoJson.features);
+                    }
+                });
+
+                return {
+                    type: 'FeatureCollection',
+                    features: mergedFeatures
+                };
+            }
+
+            async processIndividualFiles(files) {
+                const fileMap = {};
+                
+                // Read all files into memory
+                for (const file of files) {
+                    const extension = file.name.split('.').pop().toLowerCase();
+                    fileMap[extension] = await file.arrayBuffer();
+                }
+
+                // Check if we have the required .shp file
+                if (!fileMap.shp) {
+                    throw new Error('No .shp file found');
+                }
+
+                // Use shpjs to parse the files
+                return await shp.combine([
+                    shp.parseShp(fileMap.shp, fileMap.prj),
+                    shp.parseDbf(fileMap.dbf)
+                ]);
+            }
+
+            async processGeoJsonFile(geoJsonFile) {
+                const text = await geoJsonFile.text();
+                const geoJsonData = JSON.parse(text);
+                
+                // Validate GeoJSON structure
+                if (!geoJsonData.type) {
+                    throw new Error('Invalid GeoJSON: missing type property');
+                }
+                
+                // Handle different GeoJSON types
+                if (geoJsonData.type === 'FeatureCollection') {
+                    if (!geoJsonData.features || !Array.isArray(geoJsonData.features)) {
+                        throw new Error('Invalid FeatureCollection: missing or invalid features array');
+                    }
+                    return geoJsonData;
+                } else if (geoJsonData.type === 'Feature') {
+                    // Convert single Feature to FeatureCollection
+                    return {
+                        type: 'FeatureCollection',
+                        features: [geoJsonData]
+                    };
+                } else if (geoJsonData.type && ['Point', 'LineString', 'Polygon', 'MultiPoint', 'MultiLineString', 'MultiPolygon', 'GeometryCollection'].includes(geoJsonData.type)) {
+                    // Convert Geometry to FeatureCollection
+                    return {
+                        type: 'FeatureCollection',
+                        features: [{
+                            type: 'Feature',
+                            geometry: geoJsonData,
+                            properties: {}
+                        }]
+                    };
+                } else {
+                    throw new Error(`Unsupported GeoJSON type: ${geoJsonData.type}`);
+                }
+            }
+
+            async processMultipleGeoJsonFiles(geoJsonFiles) {
+                this.showStatus(`Processing ${geoJsonFiles.length} GeoJSON files...`, 'loading');
+                
+                const allGeoJSONData = [];
+                let totalFeatures = 0;
+
+                for (let i = 0; i < geoJsonFiles.length; i++) {
+                    const geoJsonFile = geoJsonFiles[i];
+                    try {
+                        this.showStatus(`Processing ${geoJsonFile.name} (${i + 1}/${geoJsonFiles.length})...`, 'loading');
+                        
+                        const geoJsonData = await this.processGeoJsonFile(geoJsonFile);
+                        
+                        if (geoJsonData && geoJsonData.features && geoJsonData.features.length > 0) {
+                            // Add source file information to each feature
+                            geoJsonData.features.forEach(feature => {
+                                if (!feature.properties) feature.properties = {};
+                                feature.properties._sourceFile = geoJsonFile.name;
+                            });
+                            
+                            allGeoJSONData.push(geoJsonData);
+                            totalFeatures += geoJsonData.features.length;
+                            console.log(`Loaded ${geoJsonData.features.length} features from ${geoJsonFile.name}`);
+                        } else {
+                            console.warn(`No valid features found in ${geoJsonFile.name}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error processing ${geoJsonFile.name}:`, error);
+                        // Continue with other files even if one fails
+                    }
+                }
+
+                if (allGeoJSONData.length === 0) {
+                    throw new Error('No valid GeoJSON data found in any file');
+                }
+
+                // Merge all GeoJSON data into a single FeatureCollection
+                const mergedData = this.mergeGeoJSONData(allGeoJSONData);
+                console.log(`Successfully merged ${totalFeatures} features from ${allGeoJSONData.length} GeoJSON files`);
+                
+                return mergedData;
+            }
+
+            async loadShapefileData(data) {
+                // Clear existing layer
+                if (this.parcelLayer) {
+                    this.map.removeLayer(this.parcelLayer);
+                    // Remove from layer control if it exists
+                    if (this.layerControl) {
+                        this.layerControl.removeLayer(this.parcelLayer);
+                    }
+                }
+
+                console.log('Original data features count:', data.features ? data.features.length : 0);
+
+                // Transform coordinates if needed
+                const transformedData = this.transformCoordinates(data);
+
+                console.log('Transformed data features count:', transformedData.features ? transformedData.features.length : 0);
+
+                // Validate transformed data
+                if (!transformedData.features || transformedData.features.length === 0) {
+                    this.showStatus('Error: No valid features found in the shapefile', 'error');
+                    return;
+                }
+
+                // Check if coordinates are valid
+                const sampleFeature = transformedData.features[0];
+                const sampleCoord = this.getSampleCoordinate(sampleFeature);
+                if (sampleCoord) {
+                    console.log('Sample transformed coordinate:', sampleCoord);
+                    const [lon, lat] = sampleCoord;
+                    if (Math.abs(lon) > 180 || Math.abs(lat) > 90) {
+                        console.warn('Coordinates still appear to be projected after transformation');
+                        this.showStatus('Warning: Coordinates may not be properly transformed', 'warning');
+                    }
+                }
+
+                // Store the data
+                this.allParcels = transformedData;
+
+                // Create the layer
+                this.parcelLayer = L.geoJSON(transformedData, {
+                    style: this.getParcelStyle,
+                    onEachFeature: (feature, layer) => this.onEachParcel(feature, layer)
+                }).addTo(this.map);
+
+                // Add parcel layer to layer control
+                if (this.layerControl) {
+                    this.layerControl.addOverlay(this.parcelLayer, `Parcels (${transformedData.features.length})`);
+                }
+
+                // Fit map to data bounds with retry mechanism
+                this.fitMapToBounds();
+
+                // Show success message
+                this.showStatus(`Successfully loaded ${transformedData.features.length} parcels`, 'success');
+            }
+
+            fitMapToBounds() {
+                if (!this.parcelLayer) return;
+
+                try {
+                    const bounds = this.parcelLayer.getBounds();
+                    console.log('Layer bounds:', bounds);
+                    
+                    if (bounds.isValid()) {
+                        // Check if bounds are reasonable (not too small or too large)
+                        const boundsSize = bounds.getNorthEast().distanceTo(bounds.getSouthWest());
+                        console.log('Bounds size (meters):', boundsSize);
+                        
+                        if (boundsSize > 1 && boundsSize < 20000000) { // Between 1m and 20,000km
+                            this.map.fitBounds(bounds, { 
+                                padding: [20, 20],
+                                maxZoom: 18 // Prevent zooming too close
+                            });
+                        } else {
+                            console.warn('Bounds size seems unreasonable, using default view');
+                            this.map.setView([14.5995, 120.9842], 10); // Default to Manila area
+                        }
+                    } else {
+                        console.warn('Invalid bounds, using default view');
+                        this.map.setView([14.5995, 120.9842], 10); // Default to Manila area
+                    }
+                } catch (error) {
+                    console.error('Error fitting map to bounds:', error);
+                    this.map.setView([14.5995, 120.9842], 10); // Default to Manila area
+                }
+            }
+
+            getParcelStyle(feature) {
+                return {
+                    fillColor: '#4a90e2',
+                    weight: 2,
+                    opacity: 1,
+                    color: '#4a90e2',
+                    dashArray: '',
+                    fillOpacity: 0.3
+                };
+            }
+
+            onEachParcel(feature, layer) {
+                // Create popup content
+                const popupContent = this.createPopupContent(feature.properties);
+                layer.bindPopup(popupContent);
+
+                // Add hover effects
+                layer.on({
+                    mouseover: (e) => {
+                        const layer = e.target;
+                        layer.setStyle({
+                            weight: 3,
+                            color: '#2c3e50',
+                            fillOpacity: 0.5
+                        });
+                    },
+                    mouseout: (e) => {
+                        this.parcelLayer.resetStyle(e.target);
+                    }
+                });
+            }
+
+            createPopupContent(properties) {
+                let content = '<div class="popup-content">';
+                content += '<h4>Parcel Information</h4>';
+                
+                // Show source file first if available (for multiple ZIP files)
+                if (properties._sourceFile) {
+                    content += `<div class="attribute" style="background: #f8f9fa; padding: 5px; border-radius: 3px; margin-bottom: 8px;">`;
+                    content += `<strong>📁 Source File:</strong>`;
+                    content += `<span style="font-family: monospace; font-size: 0.9em;">${properties._sourceFile}</span>`;
+                    content += `</div>`;
+                }
+                
+                // Display only specific fields requested by user
+                const fieldsToShow = [
+                    { key: 'TD', label: 'TD' },
+                    { key: 'Owner', label: 'Owner' },
+                    { key: 'PIN', label: 'PIN' },
+                    { key: 'PIN_NEW', label: 'PIN NEW' },
+                    { key: 'Barangay', label: 'Barangay' },
+                    { key: 'PrevTD', label: 'PrevTD' },
+                    { key: 'PrevPIN', label: 'PrevPIN' }
+                ];
+                
+                fieldsToShow.forEach(field => {
+                    // Try different case variations of the field name
+                    const possibleKeys = [
+                        field.key,
+                        field.key.toLowerCase(),
+                        field.key.toUpperCase(),
+                        field.key.replace('_', ' '),
+                        field.key.replace(' ', '_')
+                    ];
+                    
+                    let value = null;
+                    let foundKey = null;
+                    
+                    // Find the actual property key that exists
+                    for (const key of possibleKeys) {
+                        if (properties.hasOwnProperty(key)) {
+                            value = properties[key];
+                            foundKey = key;
+                            break;
+                        }
+                    }
+                    
+                    // Display the field even if empty (to maintain consistent layout)
+                    content += `<div class="attribute">`;
+                    content += `<strong>${field.label}:</strong>`;
+                    if (value !== null && value !== undefined && value !== '') {
+                        content += `<span>${value}</span>`;
+                    } else {
+                        content += `<span style="color: #999; font-style: italic;">Not available</span>`;
+                    }
+                    content += `</div>`;
+                });
+                
+                content += '</div>';
+                return content;
+            }
+
+            formatPropertyName(name) {
+                // Convert property names to more readable format
+                return name.replace(/_/g, ' ')
+                          .replace(/\b\w/g, l => l.toUpperCase());
+            }
+
+            transformCoordinates(geojsonData) {
+                // Check if we have CRS information
+                const crs = geojsonData.crs;
+                let sourceCRS = null;
+
+                console.log('CRS information:', crs);
+
+                if (crs && crs.properties && crs.properties.name) {
+                    const crsName = crs.properties.name;
+                    console.log('CRS name found:', crsName);
+                    
+                    // Handle different CRS name formats
+                    if (typeof crsName === 'string') {
+                        if (crsName.includes('3125') || crsName.includes('WKID":3125')) {
+                            sourceCRS = 'EPSG:3125';
+                        } else if (crsName.includes('4683')) {
+                            sourceCRS = 'EPSG:4683';
+                        } else if (crsName.includes('EPSG:')) {
+                            const match = crsName.match(/EPSG:(\d+)/);
+                            if (match) {
+                                sourceCRS = `EPSG:${match[1]}`;
+                            }
+                        } else if (crsName.includes('urn:ogc:def:crs:EPSG::')) {
+                            const match = crsName.match(/urn:ogc:def:crs:EPSG::(\d+)/);
+                            if (match) {
+                                sourceCRS = `EPSG:${match[1]}`;
+                            }
+                        }
+                    } else if (typeof crsName === 'object' && crsName.wkid) {
+                        // Handle ESRI WKID format
+                        if (crsName.wkid === 3125) {
+                            sourceCRS = 'EPSG:3125';
+                        } else {
+                            sourceCRS = `EPSG:${crsName.wkid}`;
+                        }
+                    }
+                }
+
+                // If no CRS detected, check coordinate ranges to guess projection
+                if (!sourceCRS) {
+                    sourceCRS = this.detectProjection(geojsonData);
+                }
+
+                console.log('Detected source CRS:', sourceCRS);
+
+                // If we detected a projected coordinate system, transform to WGS84
+                if (sourceCRS && sourceCRS !== 'EPSG:4326') {
+                    try {
+                        console.log('Attempting coordinate transformation...');
+                        const transformed = this.reprojectGeoJSON(geojsonData, sourceCRS, 'EPSG:4326');
+                        console.log('Transformation successful');
+                        return transformed;
+                    } catch (error) {
+                        console.error('Coordinate transformation failed:', error);
+                        this.showStatus('Warning: Coordinate transformation failed. Trying alternative approach...', 'warning');
+                        
+                        // Try alternative approach for Philippine data
+                        if (sourceCRS === 'EPSG:3125') {
+                            try {
+                                console.log('Trying alternative transformation for EPSG:3125...');
+                                return this.transformPhilippineCoordinates(geojsonData);
+                            } catch (altError) {
+                                console.error('Alternative transformation also failed:', altError);
+                                this.showStatus('Error: Could not transform coordinates. Data may not display correctly.', 'error');
+                            }
+                        }
+                        
+                        return geojsonData;
+                    }
+                }
+
+                return geojsonData;
+            }
+
+            detectProjection(geojsonData) {
+                // Sample some coordinates to detect likely projection
+                let sampleCoords = [];
+                
+                if (geojsonData.features && geojsonData.features.length > 0) {
+                    const feature = geojsonData.features[0];
+                    if (feature.geometry && feature.geometry.coordinates) {
+                        if (feature.geometry.type === 'Polygon') {
+                            sampleCoords = feature.geometry.coordinates[0].slice(0, 5);
+                        } else if (feature.geometry.type === 'Point') {
+                            sampleCoords = [feature.geometry.coordinates];
+                        } else if (feature.geometry.type === 'MultiPolygon') {
+                            sampleCoords = feature.geometry.coordinates[0][0].slice(0, 5);
+                        }
+                    }
+                }
+
+                if (sampleCoords.length > 0) {
+                    const [x, y] = sampleCoords[0];
+                    console.log('Sample coordinates for detection:', [x, y]);
+                    
+                    // Check coordinate ranges to guess projection
+                    if (Math.abs(x) > 180 || Math.abs(y) > 90) {
+                        // Likely projected coordinates
+                        
+                        // Check for common Philippine projections (WKID 3125 is PRS92 / Philippines zone III)
+                        if (x > 200000 && x < 800000 && y > 1000000 && y < 2000000) {
+                            console.log('Detected Philippine PRS92 coordinates');
+                            return 'EPSG:3125'; // PRS92 / Philippines zone III
+                        }
+                        
+                        // Check for UTM zones (common range)
+                        if (x > 100000 && x < 900000 && y > 1000000 && y < 10000000) {
+                            console.log('Detected UTM-like coordinates');
+                            // Could be UTM - default to a common Philippine UTM zone
+                            return 'EPSG:32651'; // WGS84 / UTM zone 51N (covers Philippines)
+                        }
+                        
+                        // Check for other Philippine coordinate ranges
+                        if (x > 50000 && x < 1000000 && y > 500000 && y < 3000000) {
+                            console.log('Detected other Philippine projected coordinates');
+                            return 'EPSG:3125';
+                        }
+                        
+                        // Default for other projected systems
+                        console.log('Defaulting to EPSG:3125 for projected coordinates');
+                        return 'EPSG:3125';
+                    }
+                }
+
+                // Assume WGS84 if coordinates look geographic
+                console.log('Assuming WGS84 for geographic coordinates');
+                return 'EPSG:4326';
+            }
+
+            transformPhilippineCoordinates(geojsonData) {
+                // Alternative transformation method for Philippine coordinates
+                // This uses a simplified transformation approach
+                console.log('Using alternative Philippine coordinate transformation');
+                
+                // Define a simple transformation for PRS92 to WGS84
+                // This is a simplified approach - in production, use proper datum transformation
+                const transformedData = JSON.parse(JSON.stringify(geojsonData));
+                
+                const transformCoord = (coord) => {
+                    const [x, y] = coord;
+                    
+                    // Simple transformation from PRS92 Zone III to approximate WGS84
+                    // This is a rough approximation - proper transformation requires datum shift
+                    const lon = (x - 500000) / 111320 + 121; // Approximate longitude
+                    const lat = y / 111320; // Approximate latitude
+                    
+                    return [lon, lat];
+                };
+                
+                // Transform all coordinates
+                if (transformedData.features) {
+                    transformedData.features.forEach(feature => {
+                        this.transformFeatureGeometrySimple(feature.geometry, transformCoord);
+                    });
+                }
+                
+                return transformedData;
+            }
+            
+            transformFeatureGeometrySimple(geometry, transformFunc) {
+                if (!geometry || !geometry.coordinates) return;
+
+                switch (geometry.type) {
+                    case 'Point':
+                        geometry.coordinates = transformFunc(geometry.coordinates);
+                        break;
+                    case 'LineString':
+                    case 'MultiPoint':
+                        geometry.coordinates = geometry.coordinates.map(coord => transformFunc(coord));
+                        break;
+                    case 'Polygon':
+                    case 'MultiLineString':
+                        geometry.coordinates = geometry.coordinates.map(ring => 
+                            ring.map(coord => transformFunc(coord))
+                        );
+                        break;
+                    case 'MultiPolygon':
+                        geometry.coordinates = geometry.coordinates.map(polygon => 
+                            polygon.map(ring => 
+                                ring.map(coord => transformFunc(coord))
+                            )
+                        );
+                        break;
+                    case 'GeometryCollection':
+                        geometry.geometries.forEach(geom => 
+                            this.transformFeatureGeometrySimple(geom, transformFunc)
+                        );
+                        break;
+                }
+            }
+
+            reprojectGeoJSON(geojsonData, sourceCRS, targetCRS) {
+                // Define common Philippine projections with corrected parameters
+                const projections = {
+                    // PRS92 / Philippines zone III - corrected definition
+                    'EPSG:3125': '+proj=tmerc +lat_0=0 +lon_0=121 +k=0.99995 +x_0=500000 +y_0=0 +ellps=clrk66 +towgs84=-127.62,-67.24,-47.04,-3.068,4.903,1.578,-1.06 +units=m +no_defs',
+                    'EPSG:4326': '+proj=longlat +datum=WGS84 +no_defs',
+                    'EPSG:32651': '+proj=utm +zone=51 +datum=WGS84 +units=m +no_defs',
+                    // Alternative PRS92 definition
+                    'EPSG:4683': '+proj=longlat +ellps=clrk66 +towgs84=-127.62,-67.24,-47.04,-3.068,4.903,1.578,-1.06 +no_defs'
+                };
+
+                console.log(`Transforming from ${sourceCRS} to ${targetCRS}`);
+
+                // Add projection definitions
+                if (projections[sourceCRS]) {
+                    proj4.defs(sourceCRS, projections[sourceCRS]);
+                } else {
+                    console.warn(`Unknown source CRS: ${sourceCRS}`);
+                }
+                if (projections[targetCRS]) {
+                    proj4.defs(targetCRS, projections[targetCRS]);
+                }
+
+                // Create transformation function
+                let transform;
+                try {
+                    transform = proj4(sourceCRS, targetCRS);
+                } catch (error) {
+                    console.error('Failed to create transformation:', error);
+                    throw error;
+                }
+
+                // Deep clone the GeoJSON to avoid modifying original
+                const transformedData = JSON.parse(JSON.stringify(geojsonData));
+
+                // Log sample coordinates before transformation
+                if (transformedData.features && transformedData.features.length > 0) {
+                    const sampleCoord = this.getSampleCoordinate(transformedData.features[0]);
+                    if (sampleCoord) {
+                        console.log('Sample coordinate before transformation:', sampleCoord);
+                        try {
+                            const transformed = transform.forward(sampleCoord);
+                            console.log('Sample coordinate after transformation:', transformed);
+                        } catch (error) {
+                            console.error('Sample transformation failed:', error);
+                        }
+                    }
+                }
+
+                // Transform coordinates recursively
+                this.transformGeometryCoordinates(transformedData, transform);
+
+                // Update CRS information
+                transformedData.crs = {
+                    type: 'name',
+                    properties: {
+                        name: targetCRS
+                    }
+                };
+
+                return transformedData;
+            }
+
+            getSampleCoordinate(feature) {
+                if (!feature.geometry || !feature.geometry.coordinates) return null;
+                
+                switch (feature.geometry.type) {
+                    case 'Point':
+                        return feature.geometry.coordinates;
+                    case 'Polygon':
+                        return feature.geometry.coordinates[0][0];
+                    case 'MultiPolygon':
+                        return feature.geometry.coordinates[0][0][0];
+                    case 'LineString':
+                        return feature.geometry.coordinates[0];
+                    case 'MultiLineString':
+                        return feature.geometry.coordinates[0][0];
+                    default:
+                        return null;
+                }
+            }
+
+            transformGeometryCoordinates(geojsonData, transformFunc) {
+                if (geojsonData.features) {
+                    geojsonData.features.forEach(feature => {
+                        this.transformFeatureGeometry(feature.geometry, transformFunc);
+                    });
+                } else if (geojsonData.geometry) {
+                    this.transformFeatureGeometry(geojsonData.geometry, transformFunc);
+                }
+            }
+
+            transformFeatureGeometry(geometry, transformFunc) {
+                if (!geometry || !geometry.coordinates) return;
+
+                switch (geometry.type) {
+                    case 'Point':
+                        geometry.coordinates = transformFunc.forward(geometry.coordinates);
+                        break;
+                    case 'LineString':
+                    case 'MultiPoint':
+                        geometry.coordinates = geometry.coordinates.map(coord => transformFunc.forward(coord));
+                        break;
+                    case 'Polygon':
+                    case 'MultiLineString':
+                        geometry.coordinates = geometry.coordinates.map(ring => 
+                            ring.map(coord => transformFunc.forward(coord))
+                        );
+                        break;
+                    case 'MultiPolygon':
+                        geometry.coordinates = geometry.coordinates.map(polygon => 
+                            polygon.map(ring => 
+                                ring.map(coord => transformFunc.forward(coord))
+                            )
+                        );
+                        break;
+                    case 'GeometryCollection':
+                        geometry.geometries.forEach(geom => 
+                            this.transformFeatureGeometry(geom, transformFunc)
+                        );
+                        break;
+                }
+            }
+
+            searchParcels() {
+                const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+                
+                if (!searchTerm || !this.allParcels) {
+                    this.showStatus('Please enter a search term and load data first', 'error');
+                    return;
+                }
+
+                this.clearSearch();
+                this.searchResults = [];
+
+                // Search through all features
+                this.parcelLayer.eachLayer(layer => {
+                    const properties = layer.feature.properties;
+                    const found = Object.values(properties).some(value => {
+                        if (value === null || value === undefined) return false;
+                        return value.toString().toLowerCase().includes(searchTerm);
+                    });
+
+                    if (found) {
+                        this.searchResults.push(layer);
+                        layer.setStyle({
+                            fillColor: '#e74c3c',
+                            color: '#e74c3c',
+                            weight: 3,
+                            fillOpacity: 0.5
+                        });
+                    }
+                });
+
+                if (this.searchResults.length > 0) {
+                    // Fit map to search results
+                    const group = new L.featureGroup(this.searchResults);
+                    this.map.fitBounds(group.getBounds(), { padding: [20, 20] });
+                    this.showStatus(`Found ${this.searchResults.length} matching parcel(s)`, 'success');
+                } else {
+                    this.showStatus('No parcels found matching your search', 'error');
+                }
+            }
+
+            clearSearch() {
+                document.getElementById('searchInput').value = '';
+                
+                if (this.searchResults.length > 0) {
+                    this.searchResults.forEach(layer => {
+                        this.parcelLayer.resetStyle(layer);
+                    });
+                    this.searchResults = [];
+                }
+
+                if (this.parcelLayer && this.parcelLayer.getBounds().isValid()) {
+                    this.map.fitBounds(this.parcelLayer.getBounds(), { padding: [20, 20] });
+                }
+            }
+        }
+
+        // Initialize the application when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            new GISParcelViewer();
+        });
+    </script>
+</body>
+</html>

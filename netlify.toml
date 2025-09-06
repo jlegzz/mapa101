@@ -1,0 +1,53 @@
+# Netlify configuration file for GIS Parcel Viewer
+# This file enables easy deployment to Netlify with optimized settings
+
+[build]
+  # No build process needed - static HTML file
+  publish = "."
+
+[build.environment]
+  # Environment variables (none needed for this static app)
+
+[[headers]]
+  # Apply headers to all files
+  for = "/*"
+  [headers.values]
+    # Security headers
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Cache control for static assets
+    Cache-Control = "public, max-age=31536000"
+
+[[headers]]
+  # Special headers for HTML files
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Redirect rules (optional)
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
+
+# File processing settings
+[build.processing]
+  skip_processing = false
+
+[build.processing.css]
+  bundle = false
+  minify = false
+
+[build.processing.js]
+  bundle = false
+  minify = false
+
+[build.processing.html]
+  pretty_urls = false
+
+# Form handling (not used in this app, but available)
+[build.processing.images]
+  compress = true
