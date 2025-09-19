@@ -81,6 +81,19 @@
             border-radius: 5px;
             min-width: 200px;
         }
+        
+        .year-filter-group {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+        
+        .year-filter {
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            min-width: 120px;
+        }
 
         .btn {
             padding: 0.5rem 1rem;
@@ -178,24 +191,55 @@
         }
 
         .popup-content {
-            max-width: 300px;
+            max-width: 250px;
+            padding: 6px;
+            font-family: 'Arial', sans-serif;
+            font-size: 12px;
         }
 
-        .popup-content h4 {
-            margin-bottom: 0.5rem;
+        .popup-content h5 {
+            margin: 0 0 6px 0;
+            padding-bottom: 4px;
             color: #2c3e50;
-            border-bottom: 1px solid #eee;
-            padding-bottom: 0.3rem;
+            border-bottom: 1px solid #3498db;
+            text-align: center;
+            font-size: 14px;
         }
 
         .popup-content .attribute {
-            margin-bottom: 0.3rem;
+            margin-bottom: 3px;
+            padding: 2px 0;
             display: flex;
-            justify-content: space-between;
+            border-bottom: 1px dotted #f0f0f0;
         }
 
         .popup-content .attribute strong {
+            flex: 0 0 70px;
             color: #34495e;
+            font-weight: 600;
+            font-size: 11px;
+        }
+        
+        .popup-content .attribute span {
+            flex: 1;
+            padding-left: 4px;
+            font-size: 11px;
+        }
+        
+        /* Parcel label styling */
+        .parcel-label {
+            background: transparent;
+        }
+        
+        .parcel-label div {
+            color: #000;
+            font-weight: bold;
+            font-size: 12px;
+            text-align: center;
+            text-shadow: 0px 0px 3px white, 0px 0px 3px white, 0px 0px 3px white, 0px 0px 3px white;
+            padding: 2px 4px;
+            white-space: nowrap;
+            pointer-events: none;
         }
 
         /* Layer control styling */
@@ -274,21 +318,44 @@
 </head>
 <body>
     <div class="header">
-        <h1>🗺️ GIS Parcel Viewer</h1>
-        <p>Interactive mapping system for shapefile parcel data visualization</p>
+        <h2>🗺️ Sales Data Parcel Viewer</h2>
+        <!-- <p>Interactive mapping system for shapefile parcel data visualization</p> -->
     </div>
 
     <div class="controls">
         <div class="file-input-group">
             <label for="shapefileInput">Upload Shapefile(s) or GeoJSON - Multiple files supported:</label>
             <input type="file" id="shapefileInput" class="file-input" multiple accept=".zip,.shp,.shx,.dbf,.prj,.geojson,.json">
-            <small style="color: #666; font-size: 0.9em;">💡 Select multiple .zip files, individual shapefile components, or .geojson files</small>
+            <!-- <small style="color: #666; font-size: 0.9em;">💡 Select multiple .zip files, individual shapefile components, or .geojson files</small> -->
         </div>
         
         <div class="search-group">
-            <input type="text" id="searchInput" class="search-input" placeholder="Search parcels (e.g., parcel ID, owner)">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search parcels (e.g., G-438417, G-351212, G-015444)">
             <button id="searchBtn" class="btn btn-primary">Search</button>
             <button id="clearBtn" class="btn btn-secondary">Clear</button>
+        </div>
+        
+        <div class="year-filter-group">
+            <label for="yearFilter">Filter by Year:</label>
+            <select id="yearFilter" class="year-filter">
+                <option value="all">All Years</option>
+                <!-- <option value="2020">2020</option>
+                <option value="2021">2021</option>
+                <option value="2022">2022</option> -->
+                <option value="2021">2021 to 2025</option>
+                <option value="2022">2022 to 2025</option>
+                <option value="2023">2023 to 2025</option>
+                <option value="2024">2024 to 2025</option>
+                <!-- <option value="2025">2025</option> -->
+                <option value="single_2020">Only 2020</option>
+                <option value="single_2021">Only 2021</option>
+                <option value="single_2022">Only 2022</option>
+                <option value="single_2023">Only 2023</option>
+                <option value="single_2024">Only 2024</option>
+                <option value="single_2025">Only 2025</option>
+            </select>
+            <button id="applyYearFilterBtn" class="btn btn-primary">Apply Filter</button>
+            <button id="resetYearFilterBtn" class="btn btn-secondary">Reset</button>
         </div>
     </div>
 
@@ -378,6 +445,8 @@
                 const searchBtn = document.getElementById('searchBtn');
                 const clearBtn = document.getElementById('clearBtn');
                 const searchInput = document.getElementById('searchInput');
+                const applyYearFilterBtn = document.getElementById('applyYearFilterBtn');
+                const resetYearFilterBtn = document.getElementById('resetYearFilterBtn');
 
                 fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
                 searchBtn.addEventListener('click', () => this.searchParcels());
@@ -385,6 +454,10 @@
                 searchInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') this.searchParcels();
                 });
+                
+                // Year filter event listeners
+                applyYearFilterBtn.addEventListener('click', () => this.applyYearFilter());
+                resetYearFilterBtn.addEventListener('click', () => this.resetYearFilter());
             }
 
             showStatus(message, type = 'loading') {
@@ -716,8 +789,11 @@
             }
 
             onEachParcel(feature, layer) {
+                // Get center coordinates of the feature for street view
+                const center = layer.getBounds().getCenter();
+                
                 // Create popup content
-                const popupContent = this.createPopupContent(feature.properties);
+                const popupContent = this.createPopupContent(feature.properties, center);
                 layer.bindPopup(popupContent);
 
                 // Add hover effects
@@ -734,63 +810,176 @@
                         this.parcelLayer.resetStyle(e.target);
                     }
                 });
+                
+                // Add label with TD attribute
+                this.addParcelLabel(feature, layer, center);
             }
 
-            createPopupContent(properties) {
+            addParcelLabel(feature, layer, center) {
+                // Try to get TD value from properties
+                const properties = feature.properties;
+                const possibleTDKeys = ['TD', 'TD', 'Td'];
+                
+                let tdValue = null;
+                
+                // Find the TD property key that exists
+                for (const key of possibleTDKeys) {
+                    if (properties.hasOwnProperty(key)) {
+                        tdValue = properties[key];
+                        break;
+                    }
+                }
+                
+                // Only add label if TD value exists
+                if (tdValue !== null && tdValue !== undefined && tdValue !== '') {
+                    // Create a label with TD value
+                    const labelIcon = L.divIcon({
+                        className: 'parcel-label',
+                        html: `<div>${tdValue}</div>`,
+                        iconSize: [100, 20],
+                        iconAnchor: [50, 10]
+                    });
+                    
+                    // Create marker with the label
+                    const labelMarker = L.marker(center, {
+                        icon: labelIcon,
+                        interactive: false, // Make it non-interactive to avoid interfering with clicks
+                        pane: 'markerPane' // Use marker pane to ensure it's above the polygon
+                    }).addTo(this.map);
+                    
+                    // Store the marker in the layer for later access
+                    layer.labelMarker = labelMarker;
+                    
+                    // Initial visibility based on current zoom
+                    this.updateLabelVisibility(labelMarker);
+                    
+                    // Update visibility on zoom
+                    if (!this._zoomHandlerAdded) {
+                        this.map.on('zoomend', () => {
+                            this.updateAllLabelsVisibility();
+                        });
+                        this._zoomHandlerAdded = true;
+                    }
+                }
+            }
+            
+            updateAllLabelsVisibility() {
+                // If we have a parcel layer with features
+                if (this.parcelLayer) {
+                    this.parcelLayer.eachLayer(layer => {
+                        // Only update labels for visible parcels if year filter is active
+                        if (this.activeYearFilter && layer._visibleInYearFilter === false) {
+                            // Keep hidden if filtered out by year
+                            if (layer.labelMarker) {
+                                layer.labelMarker.getElement().style.display = 'none';
+                            }
+                            // Keep the parcel hidden
+                            layer.setStyle({
+                                fillOpacity: 0,
+                                opacity: 0
+                            });
+                        } else if (layer.labelMarker) {
+                            this.updateLabelVisibility(layer.labelMarker);
+                        }
+                    });
+                }
+            }
+            
+            updateLabelVisibility(labelMarker) {
+                const currentZoom = this.map.getZoom();
+                const minZoomForLabels = 16; // Only show labels at zoom level 16 or higher
+                
+                if (currentZoom >= minZoomForLabels) {
+                    labelMarker.getElement().style.display = '';
+                } else {
+                    labelMarker.getElement().style.display = 'none';
+                }
+            }
+            
+            createPopupContent(properties, center) {
                 let content = '<div class="popup-content">';
                 content += '<h4>Parcel Information</h4>';
                 
                 // Show source file first if available (for multiple ZIP files)
                 if (properties._sourceFile) {
-                    content += `<div class="attribute" style="background: #f8f9fa; padding: 5px; border-radius: 3px; margin-bottom: 8px;">`;
-                    content += `<strong>📁 Source File:</strong>`;
+                    content += `<div class="attribute" style="background: #f0f7fb; padding: 8px; border-radius: 4px; margin-bottom: 12px; border-left: 4px solid #3498db;">`;
+                    content += `<strong>Source File:</strong>`;
                     content += `<span style="font-family: monospace; font-size: 0.9em;">${properties._sourceFile}</span>`;
                     content += `</div>`;
                 }
                 
-                // Display only specific fields requested by user
-                const fieldsToShow = [
-                    { key: 'TD', label: 'TD' },
+                // Group fields into sections for better organization
+                const primaryFields = [
                     { key: 'Owner', label: 'Owner' },
+                    { key: 'TD', label: 'TD No.' },
                     { key: 'PIN', label: 'PIN' },
-                    { key: 'PIN_NEW', label: 'PIN NEW' },
-                    { key: 'Barangay', label: 'Barangay' },
-                    { key: 'PrevTD', label: 'PrevTD' },
-                    { key: 'PrevPIN', label: 'PrevPIN' }
+                    { key: 'PIN_1', label: 'PIN (New)' },
+                    { key: 'Barangay_1', label: 'Barangay' }
                 ];
                 
-                fieldsToShow.forEach(field => {
-                    // Try different case variations of the field name
-                    const possibleKeys = [
-                        field.key,
-                        field.key.toLowerCase(),
-                        field.key.toUpperCase(),
-                        field.key.replace('_', ' '),
-                        field.key.replace(' ', '_')
-                    ];
+                const secondaryFields = [
+                    { key: 'PrevTD', label: 'Previous TD' },
+                    // { key: 'PrevPIN', label: 'Previous PIN' },
+                    { key: 'AREA_1', label: 'Area' },
+                    { key: 'SELLING_PR', label: 'Selling Price' },
+                    { key: 'YEAR_ONLY', label: 'Year Trans.' }
+                ];
+                
+                // Function to render a group of fields
+                const renderFieldGroup = (fields) => {
+                    let groupContent = '';
                     
-                    let value = null;
-                    let foundKey = null;
-                    
-                    // Find the actual property key that exists
-                    for (const key of possibleKeys) {
-                        if (properties.hasOwnProperty(key)) {
-                            value = properties[key];
-                            foundKey = key;
-                            break;
+                    fields.forEach(field => {
+                        // Try different case variations of the field name
+                        const possibleKeys = [
+                            field.key,
+                            field.key.toLowerCase(),
+                            field.key.toUpperCase(),
+                            field.key.replace('_', ' '),
+                            field.key.replace(' ', '_')
+                        ];
+                        
+                        let value = null;
+                        
+                        // Find the actual property key that exists
+                        for (const key of possibleKeys) {
+                            if (properties.hasOwnProperty(key)) {
+                                value = properties[key];
+                                break;
+                            }
                         }
-                    }
+                        
+                        // Display the field even if empty (to maintain consistent layout)
+                        groupContent += `<div class="attribute">`;
+                        groupContent += `<strong>${field.label}:</strong>`;
+                        if (value !== null && value !== undefined && value !== '') {
+                            groupContent += `<span>${value}</span>`;
+                        } else {
+                            groupContent += `<span style="color: #999; font-style: italic;">Not available</span>`;
+                        }
+                        groupContent += `</div>`;
+                    });
                     
-                    // Display the field even if empty (to maintain consistent layout)
-                    content += `<div class="attribute">`;
-                    content += `<strong>${field.label}:</strong>`;
-                    if (value !== null && value !== undefined && value !== '') {
-                        content += `<span>${value}</span>`;
-                    } else {
-                        content += `<span style="color: #999; font-style: italic;">Not available</span>`;
-                    }
+                    return groupContent;
+                };
+                
+                // Render primary fields
+                content += renderFieldGroup(primaryFields);
+                
+                // Add a subtle divider
+                content += `<div style="height: 1px; background: #e0e0e0; margin: 10px 0;"></div>`;
+                
+                // Render secondary fields
+                content += renderFieldGroup(secondaryFields);
+                
+                // Add Street View button if coordinates are available
+                if (center && center.lat && center.lng) {
+                    const streetViewUrl = `https://www.google.com/maps?layer=c&cbll=${center.lat},${center.lng}&cbp=12,0,0,0,0`;
+                    content += `<div style="margin-top: 15px; text-align: center;">`;
+                    content += `<a href="${streetViewUrl}" target="_blank" class="btn btn-primary" style="font-size: 0.9em; padding: 6px 12px; width: 80%;">`;
+                    content += `<span style="margin-right: 5px;">🚶</span> Open Street View</a>`;
                     content += `</div>`;
-                });
+                }
                 
                 content += '</div>';
                 return content;
@@ -1118,22 +1307,29 @@
             }
 
             searchParcels() {
-                const searchTerm = document.getElementById('searchInput').value.trim().toLowerCase();
+                const searchInput = document.getElementById('searchInput').value.trim();
                 
-                if (!searchTerm || !this.allParcels) {
+                if (!searchInput || !this.allParcels) {
                     this.showStatus('Please enter a search term and load data first', 'error');
                     return;
                 }
 
                 this.clearSearch();
                 this.searchResults = [];
-
+                
+                // Split the search input by commas or spaces to handle multiple values
+                const searchTerms = searchInput.split(/[,\s]+/).filter(term => term).map(term => term.toLowerCase());
+                
                 // Search through all features
                 this.parcelLayer.eachLayer(layer => {
                     const properties = layer.feature.properties;
-                    const found = Object.values(properties).some(value => {
-                        if (value === null || value === undefined) return false;
-                        return value.toString().toLowerCase().includes(searchTerm);
+                    
+                    // Check if any of the search terms match any property value
+                    const found = searchTerms.some(term => {
+                        return Object.values(properties).some(value => {
+                            if (value === null || value === undefined) return false;
+                            return value.toString().toLowerCase().includes(term);
+                        });
                     });
 
                     if (found) {
@@ -1170,6 +1366,137 @@
                 if (this.parcelLayer && this.parcelLayer.getBounds().isValid()) {
                     this.map.fitBounds(this.parcelLayer.getBounds(), { padding: [20, 20] });
                 }
+            }
+            
+            applyYearFilter() {
+                const selectedOption = document.getElementById('yearFilter').value;
+                
+                if (!this.allParcels || selectedOption === 'all') {
+                    // If no year selected or no parcels loaded, show all parcels
+                    this.resetYearFilter();
+                    return;
+                }
+                
+                // Clear any existing search results
+                this.clearSearch();
+                
+                // Hide all parcels first
+                this.parcelLayer.eachLayer(layer => {
+                    layer.setStyle({
+                        fillOpacity: 0,
+                        opacity: 0
+                    });
+                    
+                    // Hide labels if they exist
+                    if (layer.labelMarker) {
+                        layer.labelMarker.getElement().style.display = 'none';
+                    }
+                });
+                
+                // Determine year range based on selection
+                let yearRange = [];
+                let statusMessage = '';
+                
+                if (selectedOption.startsWith('single_')) {
+                    // Single year option
+                    const year = selectedOption.replace('single_', '');
+                    yearRange = [year];
+                    statusMessage = `Showing parcels from year ${year}`;
+                } else if (selectedOption === '2021') {
+                    // 2023 to 2025 range
+                    yearRange = ['2021', '2022', '2023', '2024', '2025'];
+                    statusMessage = 'Showing parcels from years 2023 to 2025';    
+                } else if (selectedOption === '2023') {
+                    // 2023 to 2025 range
+                    yearRange = ['2023', '2024', '2025'];
+                    statusMessage = 'Showing parcels from years 2023 to 2025';
+                 } else if (selectedOption === '2022') {
+                    // 2023 to 2025 range
+                    yearRange = ['2022', '2023', '2024', '2025'];
+                    statusMessage = 'Showing parcels from years 2023 to 2025';    
+                } else if (selectedOption === '2024') {
+                    // 2024 to 2025 range
+                    yearRange = ['2024', '2025'];
+                    statusMessage = 'Showing parcels from years 2024 to 2025';
+                } else {
+                    // Regular single year (for backward compatibility)
+                    yearRange = [selectedOption];
+                    statusMessage = `Showing parcels from year ${selectedOption}`;
+                }
+                
+                // Store the active year filter
+                this.activeYearFilter = {
+                    option: selectedOption,
+                    yearRange: yearRange
+                };
+                
+                // Show parcels from the selected year range
+                const filteredLayers = [];
+                this.parcelLayer.eachLayer(layer => {
+                    const properties = layer.feature.properties;
+                    const yearValue = properties.YEAR_ONLY;
+                    
+                    if (yearValue && yearRange.includes(yearValue.toString())) {
+                        layer.setStyle({
+                            fillOpacity: 0.3,
+                            opacity: 1
+                        });
+                        
+                        // Show label if zoom level is appropriate
+                        if (layer.labelMarker) {
+                            this.updateLabelVisibility(layer.labelMarker);
+                        }
+                        
+                        // Mark this layer as visible in the current filter
+                        layer._visibleInYearFilter = true;
+                        
+                        filteredLayers.push(layer);
+                    } else {
+                        // Mark this layer as hidden in the current filter
+                        layer._visibleInYearFilter = false;
+                    }
+                });
+                
+                if (filteredLayers.length > 0) {
+                    // Fit map to filtered results
+                    const group = new L.featureGroup(filteredLayers);
+                    this.map.fitBounds(group.getBounds(), { padding: [20, 20] });
+                    this.showStatus(`${statusMessage} (${filteredLayers.length} parcels)`, 'success');
+                } else {
+                    this.showStatus(`No parcels found for the selected year range`, 'error');
+                    this.resetYearFilter();
+                }
+            }
+            
+            resetYearFilter() {
+                // Reset year filter dropdown
+                document.getElementById('yearFilter').value = 'all';
+                
+                // Clear the active year filter
+                this.activeYearFilter = null;
+                
+                // Show all parcels
+                this.parcelLayer.eachLayer(layer => {
+                    // Clear the visibility flag
+                    layer._visibleInYearFilter = undefined;
+                    
+                    layer.setStyle({
+                        fillOpacity: 0.3,
+                        opacity: 1
+                    });
+                    
+                    // Update label visibility
+                    if (layer.labelMarker) {
+                        this.updateLabelVisibility(layer.labelMarker);
+                    }
+                });
+                
+                // Fit map to all parcels
+                if (this.parcelLayer && this.parcelLayer.getBounds().isValid()) {
+                    this.map.fitBounds(this.parcelLayer.getBounds(), { padding: [20, 20] });
+                }
+                
+                this.showStatus('Showing all parcels', 'success');
             }
         }
 
