@@ -49,6 +49,33 @@
             justify-content: space-between;
         }
 
+        /* Controls collapsible container */
+        .controls { position: relative; }
+        .controls-header {
+            width: 100%;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 0.6rem 0.75rem;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        .controls-toggle {
+            border: none;
+            background: #f3f4f6;
+            color: #111827;
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+            font-weight: 700;
+            min-width: 2.25rem;
+        }
+        .controls-body { width: 100%; }
+        .controls.collapsed .controls-body { display: none; }
+
         .file-input-group {
             display: flex;
             flex-direction: column;
@@ -286,12 +313,43 @@
             display: none;
         }
 
+        /* Collapsible groups (shown mainly on mobile) */
+        .collapsible .group-header {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 0.6rem 0.75rem;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .collapsible .group-content {
+            margin-top: 0.5rem;
+        }
+        .collapsible.collapsed .group-content {
+            display: none;
+        }
+        .toggle-btn {
+            border: none;
+            background: #f3f4f6;
+            color: #111827;
+            border-radius: 4px;
+            padding: 0.25rem 0.5rem;
+            cursor: pointer;
+            font-weight: 700;
+            min-width: 2.25rem;
+        }
+
         @media (max-width: 768px) {
             .controls {
                 flex-direction: column;
                 align-items: stretch;
                 padding: 0.5rem;
             }
+            .controls-header { display: flex; }
             
             .file-input-group, .search-group, .year-filter-group {
                 width: 100%;
@@ -360,6 +418,14 @@
             .leaflet-touch .leaflet-bar {
                 border: 2px solid rgba(0,0,0,0.2);
             }
+
+            /* On mobile, show group headers and make sections collapsible */
+            .collapsible .group-header {
+                display: flex;
+            }
+            /* Keep legacy labels hidden inside header on mobile */
+            .file-input-group > label { display: none; }
+            .search-group .search-title { display: none; }
         }
         
         /* Small mobile devices */
@@ -399,21 +465,39 @@
 </head>
 <body>
     <div class="header">
-        <h2>🗺️Parcel Viewer</h2>
+        <h2>🗺️ Parcel Viewer</h2>
         <!-- <p>Interactive mapping system for shapefile parcel data visualization</p> -->
     </div>
 
-    <div class="controls">
-        <div class="file-input-group">
-            <label for="shapefileInput">Upload Shapefile(s) or GeoJSON:</label>
-            <input type="file" id="shapefileInput" class="file-input" multiple accept=".zip,.shp,.shx,.dbf,.prj,.geojson,.json">
-            <!-- <small style="color: #666; font-size: 0.9em;">💡 Select multiple .zip files, individual shapefile components, or .geojson files</small> -->
+    <div class="controls" id="controls">
+        <div class="controls-header">
+            <span>Filters</span>
+            <button id="controlsToggle" class="controls-toggle" aria-expanded="true" aria-controls="controlsBody">▼</button>
+        </div>
+        <div class="controls-body" id="controlsBody">
+        <div class="file-input-group collapsible" id="uploadGroup">
+            <div class="group-header">
+                <span>Upload Shapefile(s) or GeoJSON</span>
+                <button class="toggle-btn" data-target="#uploadContent" aria-expanded="true" aria-controls="uploadContent">▼</button>
+            </div>
+            <div class="group-content" id="uploadContent">
+                <label for="shapefileInput">Upload Shapefile(s) or GeoJSON:</label>
+                <input type="file" id="shapefileInput" class="file-input" multiple accept=".zip,.shp,.shx,.dbf,.prj,.geojson,.json">
+                <!-- <small style="color: #666; font-size: 0.9em;">💡 Select multiple .zip files, individual shapefile components, or .geojson files</small> -->
+            </div>
         </div>
         
-        <div class="search-group">
-            <input type="text" id="searchInput" class="search-input" placeholder="Search parcels (e.g., G-438417, G-351212, G-015444)">
-            <button id="searchBtn" class="btn btn-primary">Search</button>
-            <button id="clearBtn" class="btn btn-secondary">Clear</button>
+        <div class="search-group collapsible" id="searchGroup">
+            <div class="group-header">
+                <span>Search Parcels</span>
+                <button class="toggle-btn" data-target="#searchContent" aria-expanded="true" aria-controls="searchContent">▼</button>
+            </div>
+            <div class="group-content" id="searchContent">
+                <div class="search-title" aria-hidden="true" style="font-weight:600;margin-bottom:4px;color:#2c3e50;">Search Parcels</div>
+                <input type="text" id="searchInput" class="search-input" placeholder="Search parcels (e.g., G-438417, G-351212, G-015444)">
+                <button id="searchBtn" class="btn btn-primary">Search</button>
+                <button id="clearBtn" class="btn btn-secondary">Clear</button>
+            </div>
         </div>
         
         <div class="year-filter-group">
@@ -437,6 +521,7 @@
             </select>
             <button id="applyYearFilterBtn" class="btn btn-primary">Apply Filter</button>
             <button id="resetYearFilterBtn" class="btn btn-secondary">Reset</button>
+        </div>
         </div>
     </div>
 
@@ -535,6 +620,10 @@
                 const applyYearFilterBtn = document.getElementById('applyYearFilterBtn');
                 const resetYearFilterBtn = document.getElementById('resetYearFilterBtn');
                 const mapContainer = document.querySelector('.map-container');
+                const uploadGroup = document.getElementById('uploadGroup');
+                const searchGroup = document.getElementById('searchGroup');
+                const controls = document.getElementById('controls');
+                const controlsToggle = document.getElementById('controlsToggle');
 
                 fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
                 searchBtn.addEventListener('click', () => this.searchParcels());
@@ -569,11 +658,89 @@
                             this.layerControl.collapse();
                         }
                     }
+                    // Sync collapsible sections with viewport size
+                    this.syncCollapsiblesWithViewport(uploadGroup);
+                    this.syncCollapsiblesWithViewport(searchGroup);
+                    this.syncControlsWithViewport(controls);
                 });
                 
                 // Year filter event listeners
                 applyYearFilterBtn.addEventListener('click', () => this.applyYearFilter());
                 resetYearFilterBtn.addEventListener('click', () => this.resetYearFilter());
+
+                // Initialize collapsible sections
+                this.initializeCollapsible(uploadGroup);
+                this.initializeCollapsible(searchGroup);
+
+                // Initialize controls collapsible
+                this.initializeControlsCollapsible(controls, controlsToggle);
+            }
+
+            initializeCollapsible(groupEl) {
+                if (!groupEl) return;
+                const headerBtn = groupEl.querySelector('.group-header .toggle-btn');
+                const content = groupEl.querySelector('.group-content');
+                if (!headerBtn || !content) return;
+
+                const setExpanded = (expanded) => {
+                    if (expanded) {
+                        groupEl.classList.remove('collapsed');
+                        headerBtn.setAttribute('aria-expanded', 'true');
+                        headerBtn.textContent = '▼';
+                    } else {
+                        groupEl.classList.add('collapsed');
+                        headerBtn.setAttribute('aria-expanded', 'false');
+                        headerBtn.textContent = '▲';
+                    }
+                };
+
+                const isMobile = window.innerWidth <= 768;
+                setExpanded(!isMobile);
+
+                headerBtn.addEventListener('click', () => {
+                    const expanded = headerBtn.getAttribute('aria-expanded') === 'true';
+                    setExpanded(!expanded);
+                });
+
+                groupEl._setExpanded = setExpanded;
+            }
+
+            syncCollapsiblesWithViewport(groupEl) {
+                if (!groupEl || !groupEl._setExpanded) return;
+                const isMobile = window.innerWidth <= 768;
+                groupEl._setExpanded(!isMobile);
+            }
+
+            initializeControlsCollapsible(controlsEl, toggleBtn) {
+                if (!controlsEl || !toggleBtn) return;
+
+                const setExpanded = (expanded) => {
+                    if (expanded) {
+                        controlsEl.classList.remove('collapsed');
+                        toggleBtn.setAttribute('aria-expanded', 'true');
+                        toggleBtn.textContent = '▼';
+                    } else {
+                        controlsEl.classList.add('collapsed');
+                        toggleBtn.setAttribute('aria-expanded', 'false');
+                        toggleBtn.textContent = '▲';
+                    }
+                };
+
+                const isMobile = window.innerWidth <= 768;
+                setExpanded(!isMobile);
+
+                toggleBtn.addEventListener('click', () => {
+                    const expanded = toggleBtn.getAttribute('aria-expanded') === 'true';
+                    setExpanded(!expanded);
+                });
+
+                controlsEl._setExpanded = setExpanded;
+            }
+
+            syncControlsWithViewport(controlsEl) {
+                if (!controlsEl || !controlsEl._setExpanded) return;
+                const isMobile = window.innerWidth <= 768;
+                controlsEl._setExpanded(!isMobile);
             }
 
             showStatus(message, type = 'loading') {
